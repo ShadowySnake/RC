@@ -42,17 +42,22 @@ void Client_Commands(void* arg)
 {
   char received[1000];
   char sent[100];
-  char str[100];
-  char sql[100];
 
   char nume[100];
   char parola[100];
-  char admin_type[]="ad";
+  char user_type[100];
+  char email[100];
+  char admin_type[]="admin";
+  int admin_logon = 0;
+  // se verifica daca loginul este de tip administrator
+  // in caz contrar se presupune ca userul logat este unul normal
 
   char *errmsg;
   int rc = sqlite3_open("database",&database);
   struct threadData th;
   th = *((struct threadData*)arg);
+  char str[100];
+  char sql[100];
 
   while(1){
 
@@ -75,7 +80,7 @@ void Client_Commands(void* arg)
      write(th.cl,&sent,sizeof(sent));
 
      read(th.cl,&received,sizeof(received));
-     printf("%s\n",received);
+
      if(strcmp(received,"Why") == 0)
      {
        write(th.cl,"Already logged in!",sizeof("Already logged in!"));
@@ -104,19 +109,43 @@ void Client_Commands(void* arg)
 
          sprintf(sql,"SELECT type FROM users WHERE username='%s' AND password='%s';",nume,parola);
          rc = sqlite3_exec(database,sql,callback,str,&errmsg);
-         if(strstr(str,admin_type)) write(th.cl,"Admin",sizeof("Admin"));
-         else write(th.cl,"Normal",sizeof("Normal"));
+         if(strstr(str,admin_type)) {
+           write(th.cl,"Admin logged in!",sizeof("Admin logged in!"));
+           admin_logon = 1;
+         }
+         else write(th.cl,"Logged in!",sizeof("Logged in!"));
        }
+       else write(th.cl,"Wrong password!",sizeof("Wrong password!"));
      }
+     else write(th.cl,"Inexistent username!",sizeof("Inexistent username!"));
 
      }
    }
      else if(strcmp(received,"register") == 0){
      strcpy(sent,"register");
      write(th.cl,&sent,sizeof(sent));
-     //sprintf(sql,"INSERT INTO users (username,password) VALUES ('%s','%s');",name,password);
-     write(th.cl,"SUCCESS",sizeof("SUCCESS"));
+
+     read(th.cl,&received,sizeof(received));
+
+     if(strcmp(received,"Why")==0)
+     {
+       write(th.cl,"Already logged in!",sizeof("Already logged in!"));
      }
+     else {
+
+     read(th.cl,&nume,sizeof(nume));
+     read(th.cl,&parola,sizeof(parola));
+     read(th.cl,&user_type,sizeof(nume));
+     read(th.cl,&email,sizeof(email));
+
+     sql[0]=0;
+     str[0]=0;
+
+     sprintf(sql,"INSERT INTO users (username,password,type,email) VALUES ('%s','%s','%s','%s');",nume,parola,user_type,email);
+     rc = sqlite3_exec(database,sql,callback,str,&errmsg);
+     write(th.cl,"Registered successfully!",sizeof("Registered successfully!"));
+     }
+   }
      else if(strcmp(received,"all_commands") == 0){
      write(th.cl,"show_all",sizeof("show_all"));
      }

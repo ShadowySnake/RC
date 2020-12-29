@@ -18,8 +18,12 @@ int main(int argc,char *argv[])
    struct sockaddr_in server;
    char command[100];
    char received[100];
+
    char nume[100];
    char parola[100];
+   char user_type[100];
+   char email[100];
+
    int logged = 0;
 
    if((sd = socket(AF_INET,SOCK_STREAM,0)) == -1)
@@ -61,7 +65,7 @@ int main(int argc,char *argv[])
 
           write(sd,"NORMAL_STUFF",sizeof("NORMAL_STUFF"));
 
-          printf("Dati numele: ");fflush(stdout);
+          printf("Dati username: ");fflush(stdout);
           scanf("%s",nume);fflush(stdin);
           printf("Dati parola: ");fflush(stdout);
           scanf("%s",parola);fflush(stdin);
@@ -71,17 +75,33 @@ int main(int argc,char *argv[])
 
           read(sd,&received,sizeof(received));
           printf("%s\n",received);
-          logged = 1;
+          if( (strcmp(received,"Admin logged in!") == 0) || (strcmp(received,"Logged in!") == 0) ) logged = 1;
           fflush(stdout);
          }
-         else if(strcmp(received,"register")==0){
+         else if((strcmp(received,"register")==0) && (logged==0)){
+
+                write(sd,"NORMAL_STUFF",sizeof("NORMAL_STUFF"));
+
+                printf("Dati username: ");fflush(stdout);
+                scanf("%s",nume);fflush(stdin);
+                printf("Dati parola: ");fflush(stdout);
+                scanf("%s",parola);fflush(stdin);
+                printf("Alegeti tipul de user. Type 'admin' sau 'normal'.\n");fflush(stdout);
+                scanf("%s",user_type);fflush(stdin);
+                printf("Dati un email: ");fflush(stdout);
+                scanf("%s",email);fflush(stdin);
+
+                write(sd,&nume,sizeof(nume));
+                write(sd,&parola,sizeof(parola));
+                write(sd,&user_type,sizeof(user_type));
+                write(sd,&email,sizeof(email));
 
                 read(sd,&received,sizeof(received));
-                if(strcmp(received,"SUCCESS") == 0) printf("Successfull register!\n");
-                else printf("Could not register, username is already taken!\n");
+                printf("%s\n",received);
                 fflush(stdout);
+
                 }
-                else if((strcmp(received,"login")==0) && (logged == 1))
+                else if(((strcmp(received,"login")==0) || (strcmp(received,"register")==0)) && (logged == 1))
                 {
                   write(sd,"Why",sizeof("Why"));
                   read(sd,&received,sizeof(received));
