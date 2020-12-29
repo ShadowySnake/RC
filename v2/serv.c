@@ -28,10 +28,10 @@ static int callback(void *str,int argc, char **argv,char **azColName)
     else strcat(data,"NULL");
     strcat(data,"\n");
   }
-  
+
   strcat(data,"\n");
   return 0;
-} 
+}
 
 typedef struct threadData{
   int idThread; // id-ul threadului
@@ -44,20 +44,25 @@ void Client_Commands(void* arg)
   char sent[100];
   char str[100];
   char sql[100];
+
+  char nume[100];
+  char parola[100];
+  char admin_type[]="ad";
+
   char *errmsg;
   int rc = sqlite3_open("database",&database);
   struct threadData th;
   th = *((struct threadData*)arg);
-  
+
   while(1){
-  
+
      if(read(th.cl,&received,sizeof(received)) == -1)
      {
       printf("Eroare la read de la client, in thread-ul %d.\n",th.idThread);
       perror("Eroare la read de la client.");
       break;
      }
-     
+
      if(strcmp(received,"quit") == 0)
      {
       printf("A quit signal will be sent to client in thread %d.\n",th.idThread);
@@ -65,19 +70,47 @@ void Client_Commands(void* arg)
       write(th.cl,&sent,sizeof(sent));
       break;
      }
-     else if(strcmp(received,"login") == 0) { 
+     else if(strcmp(received,"login") == 0) {
      strcpy(sent,"login");
      write(th.cl,&sent,sizeof(sent));
+
      read(th.cl,&received,sizeof(received));
-     
+     printf("%s\n",received);
+     if(strcmp(received,"Why") == 0)
+     {
+       write(th.cl,"Already logged in!",sizeof("Already logged in!"));
+     }
+     else {
+
+     read(th.cl,nume,sizeof(nume));
+     read(th.cl,parola,sizeof(parola));
+
      sql[0]=0;
      str[0]=0;
-     
-     sprintf(sql,"SELECT * FROM users WHERE username='%s';",received);
+
+     sprintf(sql,"SELECT username FROM users WHERE username='%s';",nume);
      rc = sqlite3_exec(database,sql,callback,str,&errmsg);
-     if(strstr(str,received)) write(th.cl,"SUCCESS",sizeof("SUCCESS"));
-     
+     if(strstr(str,nume))
+     {
+       sql[0]=0;
+       str[0]=0;
+
+       sprintf(sql,"SELECT password FROM users WHERE username='%s' AND password='%s';",nume,parola);
+       rc = sqlite3_exec(database,sql,callback,str,&errmsg);
+       if(strstr(str,parola))
+       {
+         sql[0]=0;
+         str[0]=0;
+
+         sprintf(sql,"SELECT type FROM users WHERE username='%s' AND password='%s';",nume,parola);
+         rc = sqlite3_exec(database,sql,callback,str,&errmsg);
+         if(strstr(str,admin_type)) write(th.cl,"Admin",sizeof("Admin"));
+         else write(th.cl,"Normal",sizeof("Normal"));
+       }
      }
+
+     }
+   }
      else if(strcmp(received,"register") == 0){
      strcpy(sent,"register");
      write(th.cl,&sent,sizeof(sent));
@@ -103,9 +136,9 @@ void Client_Commands(void* arg)
      write(th.cl,"round_history",sizeof("round_history"));
      }
      else { write(th.cl,"No commands",sizeof("No commands")); }
-     
+
   }
- 
+
  sqlite3_close(database);
 }
 
@@ -115,7 +148,7 @@ static void *Client_to_thread(void *arg)
   th = *((struct threadData*)arg);
   printf("Se asteapta comenzile clientului in thread-ul %d.\n",th.idThread);
   fflush(stdout);
-  
+
   pthread_detach(pthread_self());
   Client_Commands((struct threadData*)arg);
   close((intptr_t)arg);
@@ -130,56 +163,56 @@ int main()
   int pid;
   pthread_t threads[100];
   int i=0;
-  
+
   if((sd = socket(AF_INET,SOCK_STREAM,0)) == -1)
   {
    perror("Erroare la socket in server.\n");
    return errno;
   }
-  
+
   int on=1;
   setsockopt(sd,SOL_SOCKET,SO_REUSEADDR,&on,sizeof(on));
-  
+
   bzero(&server,sizeof(server));
   bzero(&from,sizeof(from));
-  
+
   server.sin_family = AF_INET;
   server.sin_addr.s_addr = htonl(INADDR_ANY);
   server.sin_port=htons(PORT);
-  
+
   if(bind(sd,(struct sockaddr*)&server,sizeof(struct sockaddr))==-1)
   {
    perror("Erroare la bind in server.\n");
    return errno;
   }
-  
+
   if(listen(sd,2) == -1)
   {
    perror("Erroare la listen.\n");
    return errno;
   }
-  
+
   while(1)
   {
    int client;
    threadData * th;
    int length = sizeof(from);
-   
+
    printf("Se asteapta la portul %d un client...\n",PORT);
    fflush(stdout);
-   
+
    if( (client = accept(sd,(struct sockaddr *)&from,&length))<0)
    {
     perror("Erroare la accept in server.\n");
     continue;
    }
-   
+
    th = (struct threadData*)malloc(sizeof(struct threadData));
    th->idThread = i++;
    th->cl = client;
-   
+
    pthread_create(&threads[i],NULL,&Client_to_thread,th);
-   
+
   }
 //return 0;
 };
